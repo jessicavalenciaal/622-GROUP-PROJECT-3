@@ -9,22 +9,50 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r, eval=FALSE}
+# Tidyverse and text analysis tools
+library(tidyverse)
+library(tidytext)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# For decision trees
+library(rpart)
+library(rpart.plot)
+library(rattle)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# For nearest neighbors
+library(class)
 
-```{r cars}
-summary(cars)
+# For ML evaluation
+library(caret)
 ```
 
-## Including Plots
+First, we brought in the data file after handcoded sentiment has been conducted.
+```{r}
+library(readr)
+datasubset <- read_csv("hw3datasubset.csv")
+#View(hw3datasubset)
+```
+#REMOVING NEUTRAL SENTIMENT FROM HANDCODED SENTIMENT##############
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Then, we removed the observations with a "neutral" hand-coded sentiment from the data set considering that this information is not useful for the purpose of this report. 
+```{r}
+data<-datasubset[datasubset$Handcoded_Sentiment!="Neutral",]
+
+View(data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#CLEANING HANDCODED SENTIMENT##############
+
+
+We decided to clean the hand-coded sentiment column in order to make sure our results are as optimal and accurate as possible by removing human error. 
+```{r}
+data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "Posotive", "Positive")
+
+data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "Postive", "Positive")
+
+data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "postive", "Positive")
+```
+
+
+
