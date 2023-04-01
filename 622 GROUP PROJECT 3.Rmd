@@ -37,9 +37,9 @@ datasubset <- read_csv("hw3datasubset.csv")
 
 Then, we removed the observations with a "neutral" hand-coded sentiment from the data set considering that this information is not useful for the purpose of this report. 
 ```{r}
-data<-datasubset[datasubset$Handcoded_Sentiment!="Neutral",]
+data_new<-datasubset[datasubset$Handcoded_Sentiment!="Neutral",]
 
-View(data)
+View(data_new)
 ```
 
 #CLEANING HANDCODED SENTIMENT##############
@@ -47,11 +47,92 @@ View(data)
 
 We decided to clean the hand-coded sentiment column in order to make sure our results are as optimal and accurate as possible by removing human error. 
 ```{r}
-data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "Posotive", "Positive")
+data_new$Handcoded_Sentiment <- replace(data_new$Handcoded_Sentiment, data_new$Handcoded_Sentiment == "Posotive", "Positive")
 
-data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "Postive", "Positive")
+data_new$Handcoded_Sentiment <- replace(data_new$Handcoded_Sentiment, data_new$Handcoded_Sentiment == "Postive", "Positive")
 
-data$Handcoded_Sentiment <- replace(data$Handcoded_Sentiment, data$Handcoded_Sentiment == "postive", "Positive")
+data_new$Handcoded_Sentiment <- replace(data_new$Handcoded_Sentiment, data_new$Handcoded_Sentiment == "postive", "Positive")
+```
+
+-**Tokenize:** Split up the abstracts into individual words
+```{r}
+data_new %>% 
+  unnest_tokens(word, 'title_text') %>%  # tokenize
+  count(word, sort = TRUE) %>% # count by word
+  arrange(desc(n)) %>% # Everything from this point on is just to graph
+  head(20) %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_bar(stat= 'identity') + 
+  coord_flip()
+```
+
+
+```{r}
+data_new %>% 
+  unnest_tokens(word, 'title_text') %>%  # tokenize
+  anti_join(stop_words)%>% # Remove stop words
+  count(word, sort = TRUE) %>% # count by word
+  arrange(desc(n)) %>% # Everything from this point on is just to graph
+  head(20) %>% 
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_bar(stat= 'identity') + 
+  coord_flip()
+```
+The removal of stopwords allows words like shooting, police, gun to appear as frequent words. 
+
+Distribution of word counts by using a histogram on a log scale. 
+
+```{r}
+data_new %>% 
+  unnest_tokens(word, 'title_text') %>%  # tokenize
+  anti_join(stop_words)%>% # Remove stop words
+  count(word, sort = TRUE) %>%
+  ggplot(aes(n)) +
+  geom_histogram() +
+  scale_x_log10()
+```
+ There are a lot of words that appear only once or infrequently , which we remove in the next step. We choose 10 as a cut off for the number of times words reappear. The rationale is that since these words are extremely rare they are likely to be less informative and may contain errors. 
+ 
+ Remove infrequent words
+
+```{r}
+data_new %>% 
+  unnest_tokens(word, 'title_text') %>%  # tokenize
+  anti_join(stop_words)%>% # Remove stop words
+  count(word, sort = TRUE) %>% # count by word
+  filter(n >= 10) %>%  # Remove words that occur less than 10 times
+  ggplot(aes(n)) +
+  geom_histogram() +
+  scale_x_log10()
+```
+## Creating Features
+creating a column vector of words that only appear more than ten times
+```{r}
+word_list <- data_new %>% 
+  unnest_tokens(word, 'title_text') %>% 
+  anti_join(stop_words)%>% 
+  count(word, sort = TRUE) %>%
+  filter(n >= 10)%>%
+  pull(word)
+```
+
+counts of words from the word list that each "title text" column contains" 
+```{r}
+select_features <- data_new %>% 
+  unnest_tokens(word, 'title_text') %>% 
+  anti_join(stop_words)%>%            # remove stop words
+  filter(word %in% word_list) %>%     # filter for only words in the wordlist
+  count(timestamp, word) %>%                 # count word useage by abstract
+  spread(word, n) %>%                 # convert to wide format
+  map_df(replace_na, 0)               # replace NA with 0 to create dataset
+```
+
+join this back with our original dataset, using timestamp, to get the labels matched up with our features.
+```{r}
+full_data <- data_new %>% 
+  right_join(select_features, by = 'timestamp') %>% 
+  select(-SentimentGI,-text, -NegativityGI,-NegativityLM,-NegativityHE,-PositivityGI,-SentimentHE,-PositivityHE,-PositivityLM,-SentimentLM,-LC,-Vader) # Remove extra variables
+head(full_data)
 ```
 
 
