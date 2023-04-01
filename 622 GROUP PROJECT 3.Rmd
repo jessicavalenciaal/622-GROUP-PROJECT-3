@@ -136,9 +136,226 @@ head(full_data)
 ```
 
 ## Train and Test Split
+full data contains the timestamp variable (which we will use to make our train/test split in the next section), as well as our features (each word) and the Handcoded Sentiment 
 ```{r}
+full_data <- full_data %>% select(3,18:50)
+# 30% holdout sample
+test <- full_data %>% sample_frac(.3)
 
+# Rest in the training set
+train <- full_data %>% anti_join(test, by = 'timestamp') %>% select(-timestamp)
+
+# Remove ID after using to create train/test
+test <- test %>% select(-timestamp)
 ```
 
+# Fitting Models
+K-Nearest Neighbors and Decision Trees
 
+## First attempt at a model
+K-Nearest Neighbors model. This simply checks the class of closest k neighbors, and takes a vote of them to predict what the class of the data point will be. We can fit this model using the `class` package.
+```{r}
+# Create separate training and testing features and labels objects
+train_features <- train %>% select(-Handcoded_Sentiment)
+test_features <- test %>% select(-Handcoded_Sentiment)
+
+train_label <- train$Handcoded_Sentiment
+test_label <- test$Handcoded_Sentiment
+
+# Predicted values from K-NN, with K = 11
+knnpred <- knn(train_features,test_features,train_label, k = 11)
+```
+
+```{r}
+pred_actual <- data.frame(predicted = knnpred, actual = test_label)
+pred_actual %>% head()
+```
+Now that we have the predicted and actual values in one data frame, we can create a confusion matrix and evaluate how well our model is performing. 
+```{r}
+pred_actual %>% table()
+confusionMatrix(pred_actual %>% table(), positive = 'Positive')
+
+```
+We have Accuracy : 0.7667 , sensitivity(for recall) and positive predictive value (for precision).
+
+## Running a Decision Tree model
+
+```{r}
+treemod <- rpart(Handcoded_Sentiment ~ ., 
+                 data = train, 
+                 method = 'class', 
+                 control = rpart.control(minsplit = 25))
+```
+
+```{r}
+fancyRpartPlot(treemod, sub = "")
+```
+
+### Evaluating the Model
+Now that we have a model, we need to test it. We can get predictions using the `predict` function.
+```{r}
+pred <- predict(treemod, test)
+head(pred)
+```
+
+```{r}
+test_pred <- data.frame(score = pred[,2], actual = test$Handcoded_Sentiment)
+head(test_pred)
+```
+
+```{r}
+test_pred <- test_pred %>% arrange(desc(score))
+test_pred$pred <- 'Negative'
+
+top_scores <- floor(nrow(test_pred)*0.2)
+test_pred$pred[1:top_scores] <- 'Positive'
+```
+
+```{r}
+pred_table <- test_pred %>% select(pred, actual) %>% table()
+confusionMatrix(pred_table, positive = 'Positive')
+
+precision(pred_table, relevant = 'Positive')
+recall(pred_table, relevant = 'Positive')
+```
+Accuracy : 0.7333 , sensitivity(for recall)0.375 and positive predictive value (for precision)0.5.
+
+### Looping through models
+```{r}
+# We will look at minsplit values of 5, 10, 15, 20
+splits <- c(5,10,15,20)
+
+# We'll look at maxdepths of 2, 3, 4, 5
+depths <- c(2,3,4,5)
+
+# We'll consider predicting the top 5%, 10%, and 20% as cell biology
+percent <- c(.05, .1, .2)
+
+# How many different models are we running?
+nmods <- length(splits)*length(depths)*length(percent)
+
+# We will store results in this data frame
+results <- data.frame(splits = rep(NA,nmods), 
+                      depths = rep(NA, nmods),
+                      percent = rep(NA,nmods),
+                      precision = rep(NA,nmods),
+                      recall = rep(NA,nmods))
+
+# The model number that we will iterate on (aka models run so far)
+mod_num <- 1
+
+# The loop
+for(i in 1:length(splits)){
+  for(j in 1:length(depths)){
+    s <- splits[i]
+    d <- depths[j]
+    # Running the model
+    treemod <- rpart(Handcoded_Sentiment ~ ., 
+                     data = train, 
+                     method = 'class',
+                     control = rpart.control(minsplit = s, maxdepth = d))
+      
+    # Find the predictions
+    pred <- predict(treemod, test)
+      
+    # Attach scores to the test set
+    # Then sort by descending order
+    test_pred <- data.frame(score = pred[,2], actual = test$Handcoded_Sentiment)
+    test_pred <- test_pred %>% arrange(desc(score))
+      
+    # Make predictions based on scores
+    # We loop through each threshold value here.
+    for(k in 1:length(percent)){
+      p <- percent[k]
+      
+      # Predict the top % as True
+      test_pred$pred <- 'Negative '
+      top_scores <- floor(nrow(test_pred)*p)
+      test_pred$pred[1:top_scores] <- 'Positive'
+      
+      # Confusion Matrix
+      pred_tab <- test_pred %>% select(pred, actual) %>% table()
+      
+      # Store results
+      results[mod_num,] <- c(s, 
+                             d,
+                             p,
+                             precision(pred_tab, relevant = 'Positive'), 
+                             recall(pred_tab, relevant = 'Positive'))
+      # Increment the model number
+      mod_num <- mod_num + 1
+    }
+  }
+}
+
+# All results are stored in the "results" dataframe
+head(results)
+
+# Best recall? Top 5 in descending order
+results %>% arrange(desc(recall)) %>% head()
+
+# Best precision? Top 5 in descending order
+results %>% arrange(desc(precision)) %>% head()
+```
+## Simplifying the Process with Caret
+We've already used the `caret` package for tools like the confusion matrix and precision/recall. However, we can also use it to do other validation methods more easily, such as k-fold cross validation. Here, we'll look at a quick example of using `caret` to find the training and test sets need to do 10-fold cross validation.
+
+```{r}
+# Create a list of 10 folds (each element has indices of the fold)
+flds <- createFolds(full_data$timestamp, k = 10, list = TRUE, returnTrain = FALSE)
+str(flds)
+# Create train and test using fold 1 as test
+patent_test01 <- full_data[flds$Fold01,]
+patent_train01 <- full_data[-flds$Fold01,]
+```
+
+we created a list of 10 vectors, each containing a fold. So, to do our 10-fold cross validation
+
+```{r}
+library(caret)
+
+# Create 10 folds
+flds <- createFolds(full_data$timestamp, k = 10, list = TRUE, returnTrain = FALSE)
+
+# Initialize vectors to store the evaluation metrics
+accuracy_vec <- numeric(length(flds))
+precision_vec <- numeric(length(flds))
+recall_vec <- numeric(length(flds))
+
+# Loop through each fold
+for (i in seq_along(flds)) {
+  # Split the data into train and test sets using the current fold
+  test <- full_data[flds[[i]], ]
+  train <- full_data[-flds[[i]], ]
+  
+  # Train the model on the training set
+  model <- train(Handcoded_Sentiment ~ ., data = train, method = "rf")
+  
+  # Make predictions on the test set
+  pred <- predict(model, newdata = test)
+  
+  # Calculate evaluation metrics
+  confusion_matrix <- confusionMatrix(data = pred, reference = test$Handcoded_Sentiment)
+  accuracy_vec[i] <- confusion_matrix$overall["Accuracy"]
+  precision_vec[i] <- confusion_matrix$byClass["Precision"]
+  recall_vec[i] <- confusion_matrix$byClass["Recall"]
+}
+
+# Calculate the mean and standard deviation of the evaluation metrics across the 10 folds
+mean_accuracy <- mean(accuracy_vec)
+sd_accuracy <- sd(accuracy_vec)
+mean_precision <- mean(precision_vec)
+sd_precision <- sd(precision_vec)
+mean_recall <- mean(recall_vec)
+sd_recall <- sd(recall_vec)
+
+# Print the results
+cat(paste0("Mean accuracy: ", round(mean_accuracy, 3), "\n"))
+cat(paste0("Standard deviation of accuracy: ", round(sd_accuracy, 3), "\n"))
+cat(paste0("Mean precision: ", round(mean_precision, 3), "\n"))
+cat(paste0("Standard deviation of precision: ", round(sd_precision, 3), "\n"))
+cat(paste0("Mean recall: ", round(mean_recall, 3), "\n"))
+cat(paste0("Standard deviation of recall: ", round(sd_recall, 3), "\n"))
+
+```
 
