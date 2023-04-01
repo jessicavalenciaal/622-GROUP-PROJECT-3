@@ -135,5 +135,10 @@ full_data <- data_new %>%
 head(full_data)
 ```
 
+## Train and Test Split
+```{r}
+
+```
+
 
 
