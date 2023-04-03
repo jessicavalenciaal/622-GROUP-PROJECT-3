@@ -1,6 +1,6 @@
 ---
 title: "622 GROUP PROJECT 3"
-author: "Jessica Valencia"
+author: "Sihle Khanyile, Ruiling Kang, Jessica Valencia, Suzy McTaggart"
 date: "2023-03-31"
 output: pdf_document
 ---
@@ -9,7 +9,26 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Assignment 3: Machine Learning with Reddit Posts
+
+In this assignment, we will apply machine learning techniques to interpret the Reddit posts scraped about Michigan State University and the MSU Shooting as described in our Assignment 2 report using a hand-coded subset of posts.
+
 ```{r}
+# Creating the data subset that was used for hand-coding
+
+library(readr)
+#where you will bring in the data
+#hw3data <- read.csv('https://raw.githubusercontent.com/jessicavalenciaal/The622Group/main/hw3data.csv',sep=',')
+#head(hw3data)
+
+#hw3subset<-hw3data[sample(1:nrow(hw3data), 200),]
+#head(hw3subset)
+#write.csv(hw3subset, "C:\\Users\\sweeneys\\OneDrive - Michigan Medicine\\Desktop\\622\\hw3datasubset.csv", row.names=TRUE)
+```
+
+```{r}
+# Loading the packages used for the ML techniques
+
 # Tidyverse and text analysis tools
 library(tidyverse)
 library(tidytext)
@@ -29,33 +48,44 @@ library(caret)
 
 #INTRODUCTION########################################
 
-In this assignment we first chose the random 200 observation from our data set that we previously cleaned and dealt with in assignment 2. After selecting our 200 observations, we then proceeded by conducting a hand coded sentiment analysis. This task was split between all four contributors in this project. After conducting a hand coded sentiment analysis, we then proceeded to import the data and then decided to do some cleaning from the human error that was present after the hand coding. We decided to remove the "neutral" sentiments and were left with 99  observations. With these observations we proceeded to conduct tokenization and ML models to look at trends in the data. 
+In this assignment we first chose the random 200 observations from the data set that we previously cleaned and used for the analysis in assignment 2. The data subset was hand-coded to indicate positive, neutral, or negative sentiment. This task was split between all four contributors in this project. The hand-coded sentiments were used as labels to enable model fitting by supervised machine learning.
+
+Before model fitting, data was cleaned, "neutral" sentiment posts were removed, and posts were tokenized. The final dataset for the machine learning model fitting consists of 99  observations. The tokenized data allows for ML model fitting that can be used to investigate trends in the data using a new method.
 
 
 #RESULTS SUMMARY#########################
 
-After cleaning our data and preparing it for tokenization, we decided to remove stop words in order to get a better look at requiring words related to the sentiment of our data. We found that the most reoccurring words were "shooting","msu",and "michigan" among other words. This shows how our data is relevant considering our topic is Michigan State University and the shooting that occured there about a month ago. After determining what words were being frequently shown in our data, we then looked into the distribution of the word count and found that words that appeared less than 10 times were unnecessary within our data analysis, as these words were probably irrelevant to our topic of interest. we then created a column with the top most frequent words, which included words such as "prayers", "students", and "police". We created some fitted models, K-Nearest Neighbors and Decision Tree models, in order to look at the quality of our data. We found that between these two models our accuracy remained at around 73%, which we found to be good results for our data. We then verified our values by looping through models. 
+After cleaning our data and preparing it for tokenization, we decided to remove stop words in order to get a better look at requiring words related to the sentiment of our data. We found that the most reoccurring words included "shooting", "msu", and "michigan". This validates the relevance of our dataset given the selected topic - Michigan State University and the shooting that occurred there about a month ago. 
+
+We also reviewed the distribution of the word count and found that words that appeared less than 10 times were uninformative to our data analysis.  As such, these words were deemed irrelevant to our topic of interest and removed from the dataset/tokenization. 
+
+After the removal of stop-words, a column with the frequent words was created. In addition to those listed above, this column included words such as "prayers", "students", and "police". 
+
+Several machine learning techniques were applied to fit models including K-Nearest Neighbors and Decision Tree models. For each technique model quality was assessed via common model quality metrics such as accuracy, positive and negative predictive value, and sensitivity/specificity. We found that between these two models our accuracy remained at around 73%, which is a good result for our data. 
+
+Finally, the outcomes were verified by looping through a small set of varied model specifications. 
 
 First, we brought in the data file after hand coded sentiment has been conducted.
 ```{r}
 library(readr)
 datasubset <- read_csv("hw3datasubset.csv")
-#View(hw3datasubset)
+#View(datasubset)
 ```
+
 #REMOVING NEUTRAL SENTIMENT FROM HANDCODED SENTIMENT##############
 
+Posts with a "neutral" hand-coded sentiment were removed from the dataset to allow for better model specification specifically on positive and negative posts.  
 
-Then, we removed the observations with a "neutral" hand-coded sentiment from the data set considering that this information is not useful for the purpose of this report. 
 ```{r}
 data_new<-datasubset[datasubset$Handcoded_Sentiment!="Neutral",]
 
-View(data_new)
+#View(data_new)
 ```
 
 #CLEANING HANDCODED SENTIMENT##############
 
 
-We decided to clean the hand-coded sentiment column in order to make sure our results are as optimal and accurate as possible by removing human error. 
+Errors in the hand-coded sentiments were cleaned prior to analysis to ensure that construct irrelavent variance would be minimized. 
 ```{r}
 data_new$Handcoded_Sentiment <- replace(data_new$Handcoded_Sentiment, data_new$Handcoded_Sentiment == "Posotive", "Positive")
 
@@ -69,7 +99,9 @@ data_new$Handcoded_Sentiment <- replace(data_new$Handcoded_Sentiment, data_new$H
 
 -**Tokenize:** Split up the abstracts into individual words
 
-```{r}
+```{r, echo=FALSE}
+#loading the dplyr package
+
 if ("dplyr" %in% installed.packages()[, "Package"]){ 
   cat("'dplyr' is installed.")
 } else {
@@ -78,7 +110,9 @@ if ("dplyr" %in% installed.packages()[, "Package"]){
 library(dplyr)
 ```
 
-```{r}
+```{r, echo=FALSE}
+#loading the tokenizers package
+
 if ("tokenizers" %in% installed.packages()[, "Package"]){ 
   cat("'tokenizers' is installed.")
 } else {
@@ -87,12 +121,13 @@ if ("tokenizers" %in% installed.packages()[, "Package"]){
 library(tokenizers)
 
 ```
+First, we look at the frequency of the top 20 words among all the observations by conducting tokenization. As we can see in the barplot below, the most frequent words detected are words such as "the","to", and "and" which are considered stop words. Our goal is to focus on the words that determine the sentiment of the observations, therefore we will need to remove these stop words from our results in order to focus on the words that determine the sentiment. 
 
-
-```{r}
+```{r, echo=FALSE}
 library(dplyr)
 library(tokenizers)
 library(ggplot2)
+
 data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>%  #tokenize
   dplyr::count(word, sort = TRUE) %>%  # count by word
@@ -102,9 +137,10 @@ data_new %>%
   geom_bar(stat= 'identity') + 
   coord_flip()
 ```
-First, we look at the frequency of the top 20 words among all the observations by conducting tokenization. As we can see the most frequent words detected are words such as "the","to", and "and" which are considered stop words. Our goal is to focus on the words that determine the sentiment of the observations, therefore we will need to remove these stop words from our results in order to focus on the words that determine the sentiment. 
 
-```{r}
+After removing the stop words, a new barplot shows that the words more likely to meaningfully contribute to the intent and sentiment of the post are now within the top 20 most frequently occurring words.  As we can see, the removal of stopwords allows words like shooting, police, gun to appear as frequent words. For example, before removing stop words the most frequently occurring word was "the" and after removal is "shooting". It is evident that "shooting" is the most apparent word with over 100 appearances among the data set. This word is followed by "msu" with over 75 appearances.
+
+```{r, echo=FALSE}
 data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>%  # tokenize
   anti_join(stop_words)%>% # Remove stop words
@@ -115,10 +151,10 @@ data_new %>%
   geom_bar(stat= 'identity') + 
   coord_flip()
 ```
-After removing the stop words, as we can see, the removal of stopwords allows words like shooting, police, gun to appear as frequent words.It is evident that "shooting" is the most apparent word with over 100 appearances among the data set. This word is followed by "msu" with over 75 appearances.
+
 
 Now, we will look at the distribution of word counts by using a histogram on a log scale. This will show us the number of words that appear only once compared to those that appear frequently throughout the data set.
-```{r}
+```{r, echo=FALSE}
 data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>%  # tokenize
   anti_join(stop_words)%>% # Remove stop words
@@ -127,10 +163,12 @@ data_new %>%
   geom_histogram() +
   scale_x_log10()
 ```
-According to the results shown above, there are a lot of words that appear only once or infrequently , which we remove in the next step. We chose 10 as the cut off for the number of times words reappear. The rationale behind analyzing word frequency is that if these words are extremely rare they are likely to be less informative and may contain errors. 
+According to the results shown above, there are many words that appear infrequently, which we remove in the next step. We chose 10 as the cut off for the number of times words reappear to maintain in the dataset. The rationale behind analyzing word frequency is that if these words are extremely rare they are likely to be less informative and may contain errors. 
  
-Once we were able to determine the infrequent words in the data set, we proceeded to remove infrequent words. 
-```{r}
+Once we were able to determine the infrequent words in the data set, we proceeded to remove infrequent words.
+
+A histogram after the removal of infrequent words shows a distribution that is limited to 10 or more occurrences and is theoretically better positioned for the machine learning models to learn sentiments.
+```{r, echo=FALSE}
 data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>%  # tokenize
   anti_join(stop_words)%>% # Remove stop words
@@ -140,12 +178,11 @@ data_new %>%
   geom_histogram() +
   scale_x_log10()
 ```
-As shown above, we decided to remove words that appear less than 10 times in the data set. This will help us narrow in on the important and necessary data.
 
 
 
 ## Creating Features
-With the information acquired thus far , we decided to create a column vector of words that only appear more than ten times. We are doing so because words that appear less than 10 times are most likely stop words it may contain a lot of typos with unnecessary information. This will help us determine the important words within our data set and will help build our ML models.
+The reduced information from the posts, i.e., post text without stop words or infrequently occurring words, etc, as described in the section above, was saved to a new column within the dataset.  This new column will be used as a word list that serves as the basis for our machine learning models.
 ```{r}
 word_list <- data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>% 
@@ -157,7 +194,6 @@ word_list <- data_new %>%
 word_list
 ```
 
-Then, we decided to determine the count of the important words from the word list that each "title text" column contains. This will help us determine the observations that contain the most relevant information and will help build our ML models.
 ```{r}
 select_features <- data_new %>% 
   tidytext::unnest_tokens(word, 'title_text') %>% 
@@ -170,7 +206,7 @@ select_features <- data_new %>%
 #select_features
 ```
 
-We then joined this back with our original dataset, using timestamp, to get the labels matched up with our features.
+The column was merged to the dataset using the timestamp as a unique value for matching. 
 ```{r}
 full_data <- data_new %>% 
   right_join(select_features, by = 'timestamp') %>% 
@@ -178,8 +214,10 @@ full_data <- data_new %>%
 head(full_data)
 ```
 
+
 ## Train and Test Split
-Full data contains the timestamp variable (which we will use to make our train/test split in the next section), as well as our features (each word) and the Handcoded Sentiment.
+
+The timestamp variable was also used to create random training and testing sets for our model fitting.  A random 30% of the dataset was reserved as a testing set and the remaining 70% was included in a training test set.
 ```{r}
 full_data <- full_data %>% select(3,18:50)
 # 30% holdout sample
@@ -196,7 +234,9 @@ test <- test %>% select(-timestamp)
 We decided to proceed with K-Nearest Neighbors and Decision Trees for our ML models as these give a lot of valuable information about our data.
 
 ## First attempt at a model
-We first started with K-Nearest Neighbors model. This simply checks the class of closest k neighbors, and takes a vote of them to predict what the class of the data point will be. We can fit this model using the `class` package. This will help us have the actual and predicted values in one data frame which will beuseful for us in the following steps.
+We first started with K-Nearest Neighbors model. This simply checks the class of closest k neighbors, and takes a vote of them to predict what the class of the data point will be. We can fit this model using the `class` package. This will help us have the actual and predicted values in one data frame which will be useful for us in the following steps.
+
+To ensure the model does not use our hand-coded sentiments data is saved without the labels for the model fitting process.
 ```{r}
 # Create separate training and testing features and labels objects
 train_features <- train %>% select(-Handcoded_Sentiment)
@@ -219,10 +259,10 @@ pred_actual %>% table()
 confusionMatrix(pred_actual %>% table(), positive = 'Positive')
 
 ```
-As shown in our results, we have an accuracy of 0.7667 which we fins to be high and a good indication of our data set. However, our recall results is at 0.0 and our precision is not determined which we find to be interesting and something worth exploring in the future. 
+As shown in our results, we have an accuracy of 0.6333 which we find to be a reasonable fit to our data set. However, our recall results is at 0.0 and our precision is not determined which we find to be interesting and something worth exploring in the future. 
 
 ## Running a Decision Tree model
-Now, we decided to look at a decision tree model to get a better understanding of our data and see what other information this model can give us. 
+Now, we decided to look at a decision tree model to determine if another technique may provide a more accurate result. 
 ```{r}
 treemod <- rpart(Handcoded_Sentiment ~ ., 
                  data = train, 
@@ -230,12 +270,13 @@ treemod <- rpart(Handcoded_Sentiment ~ .,
                  control = rpart.control(minsplit = 25))
 ```
 
+The results of the decision tree, using a minimum split of 25 observations is shown in the plot below.  The first split is on the word "mass" which leans toward a negative sentiment, which aligns with intuition about posts that may include the term "mass shooting".  The inclusion of the term "michigan" moves the sentiment toward positive, which again we can interpret intuitively as posts that are specifically about the school and not focused more so on the shooting or gun rights.  This is, however, interesting given the intermediate step of the word "campus" as potentially negative.  Perhaps this could be due to a relatively impersonal use of the word "campus", but this is an area that would be interesting for further investigation.
 ```{r}
 fancyRpartPlot(treemod, sub = "")
 ```
 
 ### Evaluating the Model
-After creating the decision tree model, we must test it to see the accuracy of our results. We will use the predict function to make predictions on new data and compare the predicted values to the actual values.
+After creating the decision tree model, we again review the quality measures of the model. We will use the predict function to make predictions on new data and compare the predicted values to the actual values.
 ```{r}
 pred <- predict(treemod, test)
 head(pred)
@@ -261,7 +302,7 @@ confusionMatrix(pred_table, positive = 'Positive')
 precision(pred_table, relevant = 'Positive')
 recall(pred_table, relevant = 'Positive')
 ```
-Based on our results, the accuracy of our model is 0.7333, the recall is evaluated at 0.375 and our precision is evaluated at 0.5 . Compared to our previous model, the accuracy seems pretty comparable considering the values are close in range. However, we found that it was interesting how recall is significantly higher and precision was able to be determined. 
+Based on our results, the accuracy of our model is 0.7, the recall is evaluated at 0.364 and our precision is evaluated at 0.667. Compared to our previous model, the accuracy is slightly higher. We found that it was interesting how recall is significantly higher and precision was able to be determined for the decision tree technique.
 
 ### Looping through models
 In order to verify our values and get more information, we decided to loop through many different decision tree models to compare values and see if our values are comparable to different version of the decision tree model. 
@@ -272,7 +313,7 @@ splits <- c(5,10,15,20)
 # We'll look at maxdepths of 2, 3, 4, 5
 depths <- c(2,3,4,5)
 
-# We'll consider predicting the top 5%, 10%, and 20% as cell biology
+# We'll consider predicting the top 5%, 10%, and 20% as positive sentiment
 percent <- c(.05, .1, .2)
 
 # How many different models are we running?
@@ -287,9 +328,7 @@ results <- data.frame(splits = rep(NA,nmods),
 
 # The model number that we will iterate on (aka models run so far)
 mod_num <- 1
-```
 
-```{r, eval=FALSE}
 # The loop
 for(i in 1:length(splits)){
   for(j in 1:length(depths)){
@@ -315,7 +354,7 @@ for(i in 1:length(splits)){
       p <- percent[k]
       
       # Predict the top % as True
-      test_pred$pred <- 'Negative '
+      test_pred$pred <- 'Negative'
       top_scores <- floor(nrow(test_pred)*p)
       test_pred$pred[1:top_scores] <- 'Positive'
       
@@ -343,6 +382,9 @@ results %>% arrange(desc(recall)) %>% head()
 # Best precision? Top 5 in descending order
 results %>% arrange(desc(precision)) %>% head()
 ```
+As shown in the table above, the models provide similar ratings for precision and recall as our previously fitted tree model.  They also, however, provide validation that 20 splits and 3 depths provides the best model fit for predicting a higher percentage of post sentiment - both by precision and recall quality measures.
+
+
 ## Simplifying the Process with Caret
 We've already used the `caret` package for tools like the confusion matrix and precision/recall. However, we can also use it to do other validation methods more easily, such as k-fold cross validation. Here, we'll look at a quick example of using `caret` to find the training and test sets need to do 10-fold cross validation.
 
@@ -369,7 +411,7 @@ precision_vec <- numeric(length(flds))
 recall_vec <- numeric(length(flds))
 
 # Loop through each fold
-for (i in seq_along(flds)) {
+for (i in 1:length(flds)) {
   # Split the data into train and test sets using the current fold
   test <- full_data[flds[[i]], ]
   train <- full_data[-flds[[i]], ]
