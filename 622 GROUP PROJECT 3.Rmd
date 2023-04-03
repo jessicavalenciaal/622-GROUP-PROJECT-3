@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Tidyverse and text analysis tools
 library(tidyverse)
 library(tidytext)
+library(dplyr)
 
 # For decision trees
 library(rpart)
